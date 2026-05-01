@@ -1,0 +1,32 @@
+# Build output
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# .NET
+*.pdb
+*.dll.config
+
+# Visual Studio
+.vs/
+*.vsidx
+
+# Rider
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Editor backups
+*.swp
+*~
+
+# Claude Code per-user config
+.claude/

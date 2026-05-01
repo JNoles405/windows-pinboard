@@ -1,0 +1,223 @@
+<Window x:Class="WindowsPinboard.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Windows Pinboard"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Focusable="True"
+        UseLayoutRounding="True">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="PanelBg" Color="#FF1F1F23"/>
+        <SolidColorBrush x:Key="PanelBgAlt" Color="#FF26262C"/>
+        <SolidColorBrush x:Key="HandleBg" Color="#FF2A2A30"/>
+        <SolidColorBrush x:Key="HandleAccent" Color="#FF6F7682"/>
+        <SolidColorBrush x:Key="ForegroundDim" Color="#FFB6BBC4"/>
+        <SolidColorBrush x:Key="ForegroundBright" Color="#FFEDEFF2"/>
+        <SolidColorBrush x:Key="Accent" Color="#FF6FA8FF"/>
+        <SolidColorBrush x:Key="DividerBrush" Color="#FF34343B"/>
+
+        <Style x:Key="IconButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{StaticResource ForegroundDim}"/>
+            <Setter Property="Padding" Value="6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontFamily" Value="Segoe UI Symbol"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#22FFFFFF"/>
+                                <Setter Property="Foreground" Value="{StaticResource ForegroundBright}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#33FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="NoteListItem" TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Margin" Value="6,2"/>
+            <Setter Property="Background" Value="{StaticResource PanelBgAlt}"/>
+            <Setter Property="Foreground" Value="{StaticResource ForegroundBright}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#FF2F2F36"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#FF36465E"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="FlatTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource ForegroundBright}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CaretBrush" Value="{StaticResource Accent}"/>
+            <Setter Property="SelectionBrush" Value="#553A6FB7"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+
+        <Style x:Key="SearchBox" TargetType="TextBox" BasedOn="{StaticResource FlatTextBox}">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="Background" Value="{StaticResource PanelBgAlt}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <!--
+        Single-cell layout: window stays at full expanded size, click-through is handled
+        via WM_NCHITTEST. SidebarPanel slides in/out via a TranslateTransform.
+        HandleBorder stays anchored to the edge.
+    -->
+    <Grid x:Name="RootGrid" Background="Transparent">
+        <Border x:Name="SidebarPanel"
+                HorizontalAlignment="Right"
+                Width="360"
+                Background="{StaticResource PanelBg}"
+                BorderBrush="{StaticResource DividerBrush}"
+                BorderThickness="0,0,1,0"
+                Margin="0,0,6,0">
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="PanelTransform" X="360"/>
+            </Border.RenderTransform>
+            <Border.Effect>
+                <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="0" Opacity="0.45"/>
+            </Border.Effect>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="2*"/>
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="12,10,8,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Pinboard" FontSize="14" FontWeight="SemiBold"
+                               Foreground="{StaticResource ForegroundBright}" VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" Style="{StaticResource IconButton}" Click="OnAddClick"
+                            ToolTip="New note (Ctrl+N)" Content="+"/>
+                    <Button Grid.Column="2" Style="{StaticResource IconButton}" Click="OnSettingsClick"
+                            ToolTip="Settings" Content="⚙"/>
+                    <Button Grid.Column="3" Style="{StaticResource IconButton}" Click="OnPinClick"
+                            x:Name="PinButton" ToolTip="Pin open" Content="📌"/>
+                </Grid>
+
+                <TextBox Grid.Row="1" Margin="10,4,10,8" Style="{StaticResource SearchBox}"
+                         x:Name="SearchBox"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <Border Grid.Row="2" Height="1" Background="{StaticResource DividerBrush}" Margin="10,0,10,4"/>
+
+                <ListBox Grid.Row="3" x:Name="NotesList"
+                         ItemsSource="{Binding NotesView}"
+                         SelectedItem="{Binding Selected}"
+                         Background="Transparent" BorderThickness="0"
+                         ItemContainerStyle="{StaticResource NoteListItem}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <TextBlock Text="{Binding DisplayTitle}" FontWeight="SemiBold"
+                                           Foreground="{StaticResource ForegroundBright}" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding Preview}" FontSize="11"
+                                           Foreground="{StaticResource ForegroundDim}" TextTrimming="CharacterEllipsis"
+                                           Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Grid Grid.Row="4" Margin="10,4,10,10" DataContext="{Binding Selected}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Height="1" Background="{StaticResource DividerBrush}" Margin="0,0,0,8"/>
+
+                    <TextBox Grid.Row="1" Style="{StaticResource FlatTextBox}"
+                             FontSize="14" FontWeight="SemiBold"
+                             Text="{Binding Title, UpdateSourceTrigger=PropertyChanged, FallbackValue=''}"/>
+
+                    <TextBox Grid.Row="2" Style="{StaticResource FlatTextBox}"
+                             Margin="0,8,0,0"
+                             AcceptsReturn="True" AcceptsTab="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             Text="{Binding Body, UpdateSourceTrigger=PropertyChanged, FallbackValue=''}"/>
+
+                    <Grid Grid.Row="3" Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" FontSize="11" Foreground="{StaticResource ForegroundDim}"
+                                   Text="{Binding UpdatedAt, StringFormat='Edited {0:t}'}" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Style="{StaticResource IconButton}" Content="🗑"
+                                ToolTip="Delete note"
+                                Click="OnDeleteClick"/>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <Border x:Name="HandleBorder"
+                HorizontalAlignment="Right"
+                Width="6"
+                Background="{StaticResource HandleBg}"
+                Cursor="SizeWE"
+                MouseLeftButtonDown="OnHandleMouseDown">
+            <Border Width="2" Height="44" CornerRadius="1"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="{StaticResource HandleAccent}" Opacity="0.7"/>
+        </Border>
+    </Grid>
+</Window>

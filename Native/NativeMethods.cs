@@ -128,4 +128,32 @@ internal static class NativeMethods
 
     [DllImport("user32.dll")]
     public static extern bool DestroyIcon(IntPtr handle);
+
+    // -------- Game / fullscreen detection --------
+    [DllImport("shell32.dll")]
+    public static extern int SHQueryUserNotificationState(out int pquns);
+
+    public const int QUNS_NOT_PRESENT = 1;
+    public const int QUNS_BUSY = 2;
+    public const int QUNS_RUNNING_D3D_FULL_SCREEN = 3;
+    public const int QUNS_PRESENTATION_MODE = 4;
+    public const int QUNS_ACCEPTS_NOTIFICATIONS = 5;
+    public const int QUNS_QUIET_TIME = 6;
+    public const int QUNS_APP = 7;
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetShellWindow();
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetDesktopWindow();
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    public static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
 }

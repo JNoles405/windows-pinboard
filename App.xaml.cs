@@ -30,6 +30,9 @@ public partial class App : Application
         _tray.ShowRequested += () => _main?.Dispatcher.Invoke(() => _main.ShowAndFocus());
         _tray.SettingsRequested += () => _main?.Dispatcher.Invoke(() => _main.OpenSettingsDialog());
         _tray.ExitRequested += () => Dispatcher.Invoke(Shutdown);
+
+        _main.GameModeChanged += active => _tray?.SetGameModeIndicator(active);
+        _tray.SetGameModeIndicator(_main.IsGameModeActive);
     }
 
     protected override void OnExit(ExitEventArgs e)

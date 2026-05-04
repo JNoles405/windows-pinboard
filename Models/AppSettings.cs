@@ -22,4 +22,7 @@ public class AppSettings
 
     public bool RegisterAsAppBar { get; set; } = false;
     public bool StartWithWindows { get; set; } = false;
+
+    /// <summary>Hide the sidebar and ignore the hotkey while a fullscreen game / presentation is running.</summary>
+    public bool AutoGameMode { get; set; } = true;
 }

@@ -23,15 +23,20 @@ public partial class MainWindow : Window
     private readonly StorageService _storage;
     private readonly HotkeyService _hotkey;
     private readonly AppBarService _appBar;
+    private readonly GameModeService _gameMode;
     private readonly SidebarViewModel _vm;
     private AppSettings _settings;
     private MonitorInfo _monitor;
 
     private bool _expanded;
     private bool _pinned;
+    private bool _gameModeActive;
     private readonly DispatcherTimer _hoverOpenTimer;
     private readonly DispatcherTimer _autoHideTimer;
     private bool _suppressAutoHide;
+
+    public event Action<bool>? GameModeChanged;
+    public bool IsGameModeActive => _gameModeActive;
 
     public MainWindow()
     {
@@ -47,6 +52,9 @@ public partial class MainWindow : Window
 
         _appBar = new AppBarService();
         _appBar.PositionChanged += () => Dispatcher.BeginInvoke(new Action(() => ApplyLayout()));
+
+        _gameMode = new GameModeService();
+        _gameMode.StateChanged += OnFullscreenStateChanged;
 
         _monitor = MonitorService.Resolve(_settings.MonitorDeviceName);
 
@@ -77,12 +85,68 @@ public partial class MainWindow : Window
         TryRegisterHotkey();
         ApplyAppBar();
         UpdatePinVisual();
+
+        _gameMode.SetOwnWindow(hwnd);
+        if (_settings.AutoGameMode) _gameMode.Start();
     }
 
     private void OnClosed(object? sender, EventArgs e)
     {
+        _gameMode.Dispose();
         _appBar.Dispose();
         _hotkey.Dispose();
+    }
+
+    private void OnFullscreenStateChanged(bool fullscreenActive)
+    {
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (!_settings.AutoGameMode) return;
+            if (fullscreenActive) EnterGameMode();
+            else ExitGameMode();
+        }));
+    }
+
+    private void EnterGameMode()
+    {
+        if (_gameModeActive) return;
+        _gameModeActive = true;
+
+        // Cancel any in-flight reveal.
+        _hoverOpenTimer.Stop();
+        _autoHideTimer.Stop();
+
+        // Force-collapse and hide so the game has uncontested top of Z-order.
+        if (_pinned) { _pinned = false; UpdatePinVisual(); }
+        _expanded = false;
+        PanelTransform.BeginAnimation(TranslateTransform.XProperty, null);
+        PanelTransform.X = ComputeRestX(false);
+
+        Topmost = false;
+        Hide();
+
+        // Stop intercepting the global hotkey while gaming.
+        _hotkey.Unregister();
+
+        // Drop AppBar reservation so the game can use the full screen.
+        if (_appBar.IsRegistered) _appBar.Unregister();
+
+        GameModeChanged?.Invoke(true);
+    }
+
+    private void ExitGameMode()
+    {
+        if (!_gameModeActive) return;
+        _gameModeActive = false;
+
+        Topmost = true;
+        Show();
+        ApplyLayout();
+
+        TryRegisterHotkey();
+        ApplyAppBar();
+
+        GameModeChanged?.Invoke(false);
     }
 
     private void TryRegisterHotkey()
@@ -344,6 +408,16 @@ public partial class MainWindow : Window
 
                 try { AutostartService.SetEnabled(_settings.StartWithWindows); }
                 catch { /* registry write may fail in restricted environments */ }
+
+                if (_settings.AutoGameMode)
+                {
+                    _gameMode.Start();
+                }
+                else
+                {
+                    _gameMode.Stop();
+                    if (_gameModeActive) ExitGameMode();
+                }
             }
         }
         finally

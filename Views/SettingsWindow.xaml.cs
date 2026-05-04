@@ -30,6 +30,7 @@ public partial class SettingsWindow : Window
         AutoHideBox.Text = current.AutoHideDelayMs.ToString(CultureInfo.InvariantCulture);
         AppBarCheck.IsChecked = current.RegisterAsAppBar;
         AutostartCheck.IsChecked = current.StartWithWindows;
+        GameModeCheck.IsChecked = current.AutoGameMode;
 
         foreach (ComboBoxItem item in EdgeCombo.Items)
         {
@@ -63,6 +64,7 @@ public partial class SettingsWindow : Window
         MonitorDeviceName = s.MonitorDeviceName,
         RegisterAsAppBar = s.RegisterAsAppBar,
         StartWithWindows = s.StartWithWindows,
+        AutoGameMode = s.AutoGameMode,
     };
 
     private void UpdateHotkeyDisplay()
@@ -113,6 +115,7 @@ public partial class SettingsWindow : Window
         Result.AutoHideDelayMs = autoHide;
         Result.RegisterAsAppBar = AppBarCheck.IsChecked == true;
         Result.StartWithWindows = AutostartCheck.IsChecked == true;
+        Result.AutoGameMode = GameModeCheck.IsChecked == true;
 
         if (EdgeCombo.SelectedItem is ComboBoxItem ci && (string)ci.Tag is string tag
             && Enum.TryParse<SidebarEdge>(tag, out var edge))

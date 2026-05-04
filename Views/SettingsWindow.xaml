@@ -90,6 +90,8 @@
         <CheckBox x:Name="AppBarCheck" Content="Reserve screen edge (apps won't cover the handle)"
                   ToolTip="Registers the sliver as a Windows AppBar so maximized apps respect it."/>
         <CheckBox x:Name="AutostartCheck" Content="Start with Windows"/>
+        <CheckBox x:Name="GameModeCheck" Content="Pause when a fullscreen game is running"
+                  ToolTip="Hides the sidebar and disables the hotkey while a fullscreen game or presentation is active."/>
 
         <Grid Margin="0,4,0,0">
             <Grid.ColumnDefinitions>

@@ -8,6 +8,7 @@ public sealed class TrayService : IDisposable
 {
     private readonly Forms.NotifyIcon _icon;
     private readonly Icon _heldIcon;
+    private readonly Forms.ToolStripMenuItem _gameModeItem;
 
     public event Action? ShowRequested;
     public event Action? SettingsRequested;
@@ -31,8 +32,22 @@ public sealed class TrayService : IDisposable
         menu.Items.Add("Show sidebar", null, (_, __) => ShowRequested?.Invoke());
         menu.Items.Add("Settings…", null, (_, __) => SettingsRequested?.Invoke());
         menu.Items.Add(new Forms.ToolStripSeparator());
+
+        _gameModeItem = new Forms.ToolStripMenuItem("Game mode: off")
+        {
+            Enabled = false, // status indicator, not interactive
+        };
+        menu.Items.Add(_gameModeItem);
+
+        menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Quit", null, (_, __) => ExitRequested?.Invoke());
         _icon.ContextMenuStrip = menu;
+    }
+
+    public void SetGameModeIndicator(bool active)
+    {
+        _gameModeItem.Text = active ? "Game mode: ACTIVE (paused)" : "Game mode: off";
+        _icon.Text = active ? "Windows Pinboard — paused (game mode)" : "Windows Pinboard";
     }
 
     public void ShowBalloon(string title, string message)

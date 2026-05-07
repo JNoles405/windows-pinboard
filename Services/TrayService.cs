@@ -1,6 +1,6 @@
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using Forms = System.Windows.Forms;
+using Wpf = System.Windows;
 
 namespace WindowsPinboard.Services;
 
@@ -16,7 +16,7 @@ public sealed class TrayService : IDisposable
 
     public TrayService()
     {
-        _heldIcon = CreateIcon();
+        _heldIcon = LoadAppIcon();
         _icon = new Forms.NotifyIcon
         {
             Icon = _heldIcon,
@@ -35,7 +35,7 @@ public sealed class TrayService : IDisposable
 
         _gameModeItem = new Forms.ToolStripMenuItem("Game mode: off")
         {
-            Enabled = false, // status indicator, not interactive
+            Enabled = false, // status indicator only
         };
         menu.Items.Add(_gameModeItem);
 
@@ -57,25 +57,20 @@ public sealed class TrayService : IDisposable
         _icon.ShowBalloonTip(2500);
     }
 
-    private static Icon CreateIcon()
+    /// <summary>
+    /// Loads the multi-resolution app icon from the embedded WPF resource so the tray
+    /// icon, the window icon, and the .exe icon all share one source.
+    /// </summary>
+    private static Icon LoadAppIcon()
     {
-        using var bmp = new Bitmap(32, 32);
-        using (var g = Graphics.FromImage(bmp))
-        {
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.Clear(Color.Transparent);
-            using var bg = new SolidBrush(Color.FromArgb(255, 31, 31, 35));
-            g.FillRectangle(bg, 4, 4, 24, 24);
-            using var sliver = new SolidBrush(Color.FromArgb(255, 111, 168, 255));
-            g.FillRectangle(sliver, 23, 6, 4, 20);
-            using var pad = new SolidBrush(Color.FromArgb(255, 60, 60, 70));
-            g.FillRectangle(pad, 7, 8, 12, 5);
-            g.FillRectangle(pad, 7, 16, 12, 5);
-        }
-        var hicon = bmp.GetHicon();
-        var icon = (Icon)Icon.FromHandle(hicon).Clone();
-        Native.NativeMethods.DestroyIcon(hicon);
-        return icon;
+        var uri = new Uri("pack://application:,,,/Assets/app.ico", UriKind.Absolute);
+        var sri = Wpf.Application.GetResourceStream(uri)
+            ?? throw new InvalidOperationException("Embedded app.ico resource not found.");
+        using var stream = sri.Stream;
+
+        // Pick the frame that best matches the system small icon size (typically 16x16).
+        var size = Forms.SystemInformation.SmallIconSize;
+        return new Icon(stream, size.Width, size.Height);
     }
 
     public void Dispose()

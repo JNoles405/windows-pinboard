@@ -31,7 +31,8 @@ public partial class MainWindow : Window
     private bool _expanded;
     private bool _pinned;
     private bool _gameModeActive;
-    private readonly DispatcherTimer _hoverOpenTimer;
+    private readonly DispatcherTimer _edgePollTimer;
+    private DateTime? _edgeEnterTime;
     private readonly DispatcherTimer _autoHideTimer;
     private bool _suppressAutoHide;
 
@@ -58,8 +59,10 @@ public partial class MainWindow : Window
 
         _monitor = MonitorService.Resolve(_settings.MonitorDeviceName);
 
-        _hoverOpenTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(_settings.HoverDelayMs) };
-        _hoverOpenTimer.Tick += (_, __) => { _hoverOpenTimer.Stop(); if (!_expanded) Expand(); };
+        // Edge-hover detection runs against the OS cursor (GetCursorPos), not WPF mouse events,
+        // because the collapsed handle is click-through (HTTRANSPARENT) — WPF never sees the mouse there.
+        _edgePollTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(80) };
+        _edgePollTimer.Tick += (_, __) => PollEdgeHover();
 
         _autoHideTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(_settings.AutoHideDelayMs) };
         _autoHideTimer.Tick += (_, __) => { _autoHideTimer.Stop(); if (!_pinned && _expanded && !IsMouseOverVisibleArea()) Collapse(); };
@@ -67,8 +70,9 @@ public partial class MainWindow : Window
         Loaded += OnLoaded;
         Closed += OnClosed;
 
-        RootGrid.MouseEnter += (_, __) => OnMouseEnterSidebar();
-        RootGrid.MouseLeave += (_, __) => OnMouseLeaveSidebar();
+        // While expanded, WPF mouse events DO reach us — used to cancel/schedule the auto-hide timer.
+        RootGrid.MouseEnter += (_, __) => _autoHideTimer.Stop();
+        RootGrid.MouseLeave += (_, __) => { if (_expanded && !_pinned) ScheduleAutoHide(); };
         Deactivated += (_, __) => { if (!_pinned && _expanded) ScheduleAutoHide(); };
 
         PreviewKeyDown += OnPreviewKeyDown;
@@ -88,6 +92,9 @@ public partial class MainWindow : Window
 
         _gameMode.SetOwnWindow(hwnd);
         if (_settings.AutoGameMode) _gameMode.Start();
+
+        // Start edge-hover polling so the user can still summon the sidebar from the screen edge.
+        UpdateEdgePolling();
     }
 
     private void OnClosed(object? sender, EventArgs e)
@@ -113,8 +120,8 @@ public partial class MainWindow : Window
         _gameModeActive = true;
 
         // Cancel any in-flight reveal.
-        _hoverOpenTimer.Stop();
         _autoHideTimer.Stop();
+        UpdateEdgePolling();
 
         // Force-collapse and hide so the game has uncontested top of Z-order.
         if (_pinned) { _pinned = false; UpdatePinVisual(); }
@@ -145,6 +152,7 @@ public partial class MainWindow : Window
 
         TryRegisterHotkey();
         ApplyAppBar();
+        UpdateEdgePolling();
 
         GameModeChanged?.Invoke(false);
     }
@@ -223,6 +231,7 @@ public partial class MainWindow : Window
     {
         _expanded = true;
         AnimatePanelTo(0);
+        UpdateEdgePolling();
     }
 
     private void Collapse()
@@ -230,6 +239,72 @@ public partial class MainWindow : Window
         if (_pinned) return;
         _expanded = false;
         AnimatePanelTo(ComputeRestX(false));
+        UpdateEdgePolling();
+    }
+
+    /// <summary>
+    /// Edge polling is active only when collapsed (and not in game mode / hover disabled).
+    /// </summary>
+    private void UpdateEdgePolling()
+    {
+        bool shouldPoll = !_expanded && !_gameModeActive && _settings.HoverToOpen;
+        _edgeEnterTime = null;
+        if (shouldPoll && !_edgePollTimer.IsEnabled) _edgePollTimer.Start();
+        else if (!shouldPoll && _edgePollTimer.IsEnabled) _edgePollTimer.Stop();
+    }
+
+    /// <summary>
+    /// Tick handler: checks whether the OS cursor has been parked at the screen edge (in our
+    /// monitor's work area) for at least HoverDelayMs. If so, expands the sidebar.
+    /// </summary>
+    private void PollEdgeHover()
+    {
+        if (_expanded || _gameModeActive || !_settings.HoverToOpen)
+        {
+            _edgeEnterTime = null;
+            return;
+        }
+
+        if (!NativeMethods.GetCursorPos(out var pt))
+        {
+            _edgeEnterTime = null;
+            return;
+        }
+
+        var area = _monitor.WorkingAreaPx;
+        // Trigger zone matches the visible handle: the rightmost (or leftmost) CollapsedWidth pixels.
+        // Use a minimum of 2px so the user can park the cursor at the very edge.
+        int triggerWidthPx = Math.Max(2, (int)Math.Ceiling(_settings.CollapsedWidth * _monitor.DpiScale));
+
+        bool inZone;
+        if (_settings.Edge == SidebarEdge.Right)
+        {
+            inZone = pt.X >= area.Right - triggerWidthPx
+                  && pt.X < area.Right
+                  && pt.Y >= area.Top
+                  && pt.Y < area.Bottom;
+        }
+        else
+        {
+            inZone = pt.X >= area.Left
+                  && pt.X < area.Left + triggerWidthPx
+                  && pt.Y >= area.Top
+                  && pt.Y < area.Bottom;
+        }
+
+        if (!inZone)
+        {
+            _edgeEnterTime = null;
+            return;
+        }
+
+        _edgeEnterTime ??= DateTime.UtcNow;
+        var dwellMs = (DateTime.UtcNow - _edgeEnterTime.Value).TotalMilliseconds;
+        if (dwellMs >= _settings.HoverDelayMs)
+        {
+            _edgeEnterTime = null;
+            Expand();
+        }
     }
 
     private void AnimatePanelTo(double target)
@@ -304,11 +379,16 @@ public partial class MainWindow : Window
 
     private bool IsXInVisibleArea(double xDip)
     {
-        // Visible area shrinks as panel slides away from rest position 0.
         var slide = Math.Abs(PanelTransform.X);
+
+        // When fully collapsed, the handle is a purely visual indicator — let ALL clicks pass
+        // through to whatever's behind us (otherwise we'd steal scrollbar drags from maximized
+        // apps whose vertical scrollbar sits at the screen edge).
+        if (!_expanded && slide >= _settings.SidebarWidth - 0.5)
+            return false;
+
         if (_settings.Edge == SidebarEdge.Right)
         {
-            // Visible region is the right portion of the window.
             var visibleLeft = ActualWidth - _settings.CollapsedWidth - (_settings.SidebarWidth - slide);
             return xDip >= visibleLeft - 0.5;
         }
@@ -350,18 +430,6 @@ public partial class MainWindow : Window
         return new IntPtr(HTTRANSPARENT);
     }
 
-    private void OnMouseEnterSidebar()
-    {
-        _autoHideTimer.Stop();
-        if (!_expanded && _settings.HoverToOpen) _hoverOpenTimer.Start();
-    }
-
-    private void OnMouseLeaveSidebar()
-    {
-        _hoverOpenTimer.Stop();
-        if (_expanded && !_pinned) ScheduleAutoHide();
-    }
-
     private void OnHandleMouseDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount == 2)
@@ -398,13 +466,13 @@ public partial class MainWindow : Window
                 _settings = dlg.Result;
                 _storage.SaveSettings(_settings);
 
-                _hoverOpenTimer.Interval = TimeSpan.FromMilliseconds(_settings.HoverDelayMs);
                 _autoHideTimer.Interval = TimeSpan.FromMilliseconds(_settings.AutoHideDelayMs);
                 ApplyLayout();
                 _hotkey.Unregister();
                 TryRegisterHotkey();
 
                 ApplyAppBar();
+                UpdateEdgePolling();
 
                 try { AutostartService.SetEnabled(_settings.StartWithWindows); }
                 catch { /* registry write may fail in restricted environments */ }

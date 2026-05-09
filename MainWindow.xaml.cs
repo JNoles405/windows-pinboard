@@ -95,6 +95,28 @@ public partial class MainWindow : Window
 
         // Start edge-hover polling so the user can still summon the sidebar from the screen edge.
         UpdateEdgePolling();
+
+        // Initial state is collapsed → make the window fully click-through.
+        SetClickThrough(true);
+    }
+
+    /// <summary>
+    /// Toggles WS_EX_TRANSPARENT on the window. When set, ALL mouse events pass through to
+    /// whatever's behind us — the most reliable way to not interfere with apps below.
+    /// </summary>
+    private void SetClickThrough(bool clickThrough)
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return;
+
+        var ex = NativeMethods.GetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE).ToInt64();
+        long updated = clickThrough
+            ? ex | NativeMethods.WS_EX_TRANSPARENT
+            : ex & ~(long)NativeMethods.WS_EX_TRANSPARENT;
+        if (updated != ex)
+        {
+            NativeMethods.SetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE, new IntPtr(updated));
+        }
     }
 
     private void OnClosed(object? sender, EventArgs e)
@@ -128,6 +150,7 @@ public partial class MainWindow : Window
         _expanded = false;
         PanelTransform.BeginAnimation(TranslateTransform.XProperty, null);
         PanelTransform.X = ComputeRestX(false);
+        SetClickThrough(true);
 
         Topmost = false;
         Hide();
@@ -215,6 +238,9 @@ public partial class MainWindow : Window
         // Snap transform to current state (no animation).
         PanelTransform.BeginAnimation(TranslateTransform.XProperty, null);
         PanelTransform.X = ComputeRestX(_expanded);
+
+        // Sync click-through to current state (in case settings changed width / edge / etc.).
+        SetClickThrough(!_expanded);
     }
 
     private double ComputeRestX(bool expanded)
@@ -230,6 +256,8 @@ public partial class MainWindow : Window
     private void Expand()
     {
         _expanded = true;
+        // Disable click-through so users can interact with the panel as it slides in.
+        SetClickThrough(false);
         AnimatePanelTo(0);
         UpdateEdgePolling();
     }
@@ -238,7 +266,7 @@ public partial class MainWindow : Window
     {
         if (_pinned) return;
         _expanded = false;
-        AnimatePanelTo(ComputeRestX(false));
+        AnimatePanelTo(ComputeRestX(false), onComplete: () => SetClickThrough(true));
         UpdateEdgePolling();
     }
 
@@ -307,7 +335,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void AnimatePanelTo(double target)
+    private void AnimatePanelTo(double target, Action? onComplete = null)
     {
         var dur = new Duration(TimeSpan.FromMilliseconds(_settings.AnimationDurationMs));
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
@@ -323,6 +351,7 @@ public partial class MainWindow : Window
             // Detach the animation so subsequent direct sets work cleanly.
             PanelTransform.BeginAnimation(TranslateTransform.XProperty, null);
             PanelTransform.X = target;
+            onComplete?.Invoke();
         };
         PanelTransform.BeginAnimation(TranslateTransform.XProperty, anim);
     }

@@ -1,0 +1,155 @@
+:root {
+  --bg: #07080d;
+  --ink: #e9e1cf;
+  --muted: #9a927f;
+  --accent: #f2b45a;
+  --glow: rgba(242, 180, 90, 0.18);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.stage {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 48px 16px;
+  overflow: hidden;
+  color: var(--ink);
+  background: radial-gradient(ellipse at 50% 0%, var(--glow), transparent 60%), var(--bg);
+  transition: background 1.2s ease;
+}
+
+/* Hour bands */
+.band-lamplight { --bg: #120d14; --accent: #f2b45a; --glow: rgba(242, 160, 70, 0.28); }
+.band-longhour  { --bg: #0a0b16; --accent: #e9845e; --glow: rgba(200, 90, 80, 0.2); }
+.band-lowtide   { --bg: #050a0c; --accent: #6fd3b0; --glow: rgba(60, 180, 150, 0.14); }
+.band-thinning  { --bg: #12151d; --accent: #b9c6e4; --glow: rgba(170, 190, 230, 0.22); }
+.band-day       { --bg: #d8d3c6; --ink: #2b2925; --muted: #6d675b; --accent: #7a705e; --glow: rgba(255, 255, 255, 0.5); }
+
+.card {
+  position: relative;
+  z-index: 2;
+  max-width: 620px;
+  width: 100%;
+  animation: arrive 2.4s ease both;
+}
+
+@keyframes arrive {
+  from { opacity: 0; transform: translateY(12px); filter: blur(4px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+
+.kicker {
+  font-family: 'IM Fell English SC', serif;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  font-size: 0.95rem;
+  margin: 0 0 12px;
+}
+
+.title {
+  font-weight: 600;
+  font-size: clamp(2rem, 6vw, 3.2rem);
+  line-height: 1.05;
+  margin: 0 0 28px;
+}
+
+.prose {
+  font-size: clamp(1.15rem, 2.6vw, 1.35rem);
+  line-height: 1.65;
+  margin: 0;
+}
+
+.clue {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline dotted var(--accent);
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+  transition: color 0.4s, text-shadow 0.4s;
+}
+.clue:hover, .clue:focus-visible, .clue-open {
+  color: var(--accent);
+  text-shadow: 0 0 18px var(--accent);
+  outline: none;
+}
+
+.hint {
+  font-style: italic;
+  color: var(--accent);
+  font-size: 1.1rem;
+  line-height: 1.55;
+  margin: 0;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  border-left: 1px solid var(--accent);
+  padding-left: 16px;
+  transition: max-height 0.8s ease, opacity 0.8s ease, margin 0.8s ease;
+}
+.hint-open { max-height: 200px; opacity: 1; margin-top: 24px; }
+
+.meta {
+  margin-top: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+.meta .sub { font-style: italic; }
+
+.loading {
+  color: var(--muted);
+  font-style: italic;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 50% { opacity: 0.35; } }
+
+/* Rain */
+.rain {
+  position: absolute;
+  inset: -20% -10%;
+  z-index: 1;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(100deg, transparent 0 18px, rgba(200, 215, 255, 0.10) 18px 19px, transparent 19px 47px),
+    repeating-linear-gradient(100deg, transparent 0 31px, rgba(200, 215, 255, 0.06) 31px 32px, transparent 32px 71px);
+  background-size: 100% 140px, 100% 220px;
+  animation: rain 0.6s linear infinite;
+}
+@keyframes rain { to { background-position: -24px 140px, -38px 220px; } }
+
+/* Fog */
+.fog {
+  position: absolute;
+  inset: -30%;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 25% at 30% 60%, rgba(220, 225, 235, 0.16), transparent 70%),
+    radial-gradient(35% 20% at 70% 40%, rgba(220, 225, 235, 0.12), transparent 70%),
+    radial-gradient(50% 30% at 50% 85%, rgba(220, 225, 235, 0.14), transparent 70%);
+  filter: blur(20px);
+  animation: drift 26s ease-in-out infinite alternate;
+}
+@keyframes drift { to { transform: translate(8%, -4%) scale(1.1); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .rain, .fog, .card, .loading { animation: none; }
+}
